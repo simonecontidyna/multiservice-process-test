@@ -85,18 +85,18 @@ mvn -version
 # Creare un utente dedicato per Tomcat
 sudo useradd -r -m -U -d /opt/tomcat -s /bin/false tomcat
 
-# Scaricare Tomcat 9 (ultima versione stabile)
+# Scaricare Tomcat 9 (ultima versione stabile - 9.0.113)
 cd /tmp
-wget https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.96/bin/apache-tomcat-9.0.96.tar.gz
+wget https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.113/bin/apache-tomcat-9.0.113.tar.gz
 
 # Se il download fallisce, prova con un mirror alternativo:
-# wget https://archive.apache.org/dist/tomcat/tomcat-9/v9.0.96/bin/apache-tomcat-9.0.96.tar.gz
+# wget https://archive.apache.org/dist/tomcat/tomcat-9/v9.0.113/bin/apache-tomcat-9.0.113.tar.gz
 
 # Creare la directory di installazione
 sudo mkdir -p /opt/tomcat
 
 # Estrarre l'archivio
-sudo tar xzvf apache-tomcat-9.0.96.tar.gz -C /opt/tomcat --strip-components=1
+sudo tar xzvf apache-tomcat-9.0.113.tar.gz -C /opt/tomcat --strip-components=1
 
 # Impostare i permessi corretti
 sudo chown -R tomcat:tomcat /opt/tomcat/
