@@ -79,39 +79,55 @@ mvn -version
 
 ### 4. Installare Apache Tomcat 9
 
-#### Opzione A: Installazione tramite APT (Più semplice)
+**NOTA:** Se il pacchetto `tomcat9` non è disponibile nei repository APT della tua versione di Ubuntu, usa l'installazione manuale (consigliata).
 
 ```bash
-sudo apt install tomcat9 tomcat9-admin -y
-```
-
-Tomcat verrà installato in `/var/lib/tomcat9/` e si avvierà automaticamente.
-
-#### Opzione B: Installazione Manuale (Più controllo)
-
-```bash
-# Creare un utente per Tomcat
+# Creare un utente dedicato per Tomcat
 sudo useradd -r -m -U -d /opt/tomcat -s /bin/false tomcat
 
-# Scaricare Tomcat 9 (versione 9.0.x)
+# Scaricare Tomcat 9 (ultima versione stabile)
 cd /tmp
-wget https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.82/bin/apache-tomcat-9.0.82.tar.gz
+wget https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.96/bin/apache-tomcat-9.0.96.tar.gz
+
+# Se il download fallisce, prova con un mirror alternativo:
+# wget https://archive.apache.org/dist/tomcat/tomcat-9/v9.0.96/bin/apache-tomcat-9.0.96.tar.gz
+
+# Creare la directory di installazione
+sudo mkdir -p /opt/tomcat
 
 # Estrarre l'archivio
-sudo tar xzvf apache-tomcat-9.0.82.tar.gz -C /opt/tomcat --strip-components=1
+sudo tar xzvf apache-tomcat-9.0.96.tar.gz -C /opt/tomcat --strip-components=1
 
-# Impostare i permessi
+# Impostare i permessi corretti
 sudo chown -R tomcat:tomcat /opt/tomcat/
 sudo chmod -R u+x /opt/tomcat/bin
 ```
 
-Creare un file di servizio systemd:
+#### Configurare JAVA_HOME
+
+Prima di creare il servizio, verifica il path di Java:
+
+```bash
+# Trova il path di Java
+sudo update-alternatives --config java
+```
+
+Oppure:
+
+```bash
+# Mostra tutti i JDK installati
+ls -la /usr/lib/jvm/
+```
+
+Il path comune per OpenJDK 11 è `/usr/lib/jvm/java-11-openjdk-amd64` ma potrebbe variare.
+
+#### Creare il Servizio Systemd
 
 ```bash
 sudo nano /etc/systemd/system/tomcat.service
 ```
 
-Inserire il seguente contenuto:
+Inserire il seguente contenuto (sostituisci JAVA_HOME se necessario):
 
 ```ini
 [Unit]
@@ -141,7 +157,7 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
-Salvare e abilitare il servizio:
+Salvare il file (CTRL+O, ENTER, CTRL+X in nano) e abilitare il servizio:
 
 ```bash
 sudo systemctl daemon-reload
@@ -164,17 +180,13 @@ Dovresti vedere la pagina di benvenuto di Tomcat.
 
 ### 6. Configurare Tomcat Manager (Opzionale ma consigliato)
 
-Per l'installazione APT:
-```bash
-sudo nano /etc/tomcat9/tomcat-users.xml
-```
+Modificare il file di configurazione degli utenti:
 
-Per l'installazione manuale:
 ```bash
 sudo nano /opt/tomcat/conf/tomcat-users.xml
 ```
 
-Aggiungere prima del tag `</tomcat-users>`:
+Aggiungere le seguenti righe prima del tag di chiusura `</tomcat-users>`:
 
 ```xml
 <role rolename="manager-gui"/>
@@ -182,13 +194,27 @@ Aggiungere prima del tag `</tomcat-users>`:
 <user username="admin" password="admin123" roles="manager-gui,manager-script"/>
 ```
 
+**IMPORTANTE:** Cambia la password `admin123` con una password sicura in ambienti di produzione.
+
+Per permettere l'accesso al Manager anche da host remoti (opzionale, solo per sviluppo):
+
+```bash
+# Commentare le restrizioni di accesso
+sudo nano /opt/tomcat/webapps/manager/META-INF/context.xml
+```
+
+Commentare o rimuovere la sezione `<Valve>`:
+
+```xml
+<!--
+<Valve className="org.apache.catalina.valves.RemoteAddrValve"
+       allow="127\.\d+\.\d+\.\d+|::1|0:0:0:0:0:0:0:1" />
+-->
+```
+
 Riavviare Tomcat:
 
 ```bash
-# Per installazione APT:
-sudo systemctl restart tomcat9
-
-# Per installazione manuale:
 sudo systemctl restart tomcat
 ```
 
@@ -223,21 +249,18 @@ ls -lh app2/target/app2.war
 
 ## Deployment su Tomcat
 
-### Metodo 1: Deploy Manuale (Copia Diretta)
+### Metodo 1: Deploy Manuale (Copia Diretta) - CONSIGLIATO
 
-Per installazione APT:
-```bash
-sudo cp app1/target/app1.war /var/lib/tomcat9/webapps/
-sudo cp app2/target/app2.war /var/lib/tomcat9/webapps/
-```
-
-Per installazione manuale:
 ```bash
 sudo cp app1/target/app1.war /opt/tomcat/webapps/
 sudo cp app2/target/app2.war /opt/tomcat/webapps/
 ```
 
-Tomcat deploierà automaticamente le applicazioni in pochi secondi.
+Tomcat deploierà automaticamente le applicazioni in pochi secondi. Puoi monitorare il processo con:
+
+```bash
+sudo tail -f /opt/tomcat/logs/catalina.out
+```
 
 ### Metodo 2: Deploy tramite Tomcat Manager
 
@@ -335,20 +358,15 @@ Risposta attesa:
 
 I log vengono scritti sia nel logger Java che sulla console standard.
 
-#### Per installazione APT:
-
 ```bash
-# Log di Tomcat
-sudo tail -f /var/lib/tomcat9/logs/catalina.out
-
-# Log delle applicazioni
-sudo journalctl -u tomcat9 -f
-```
-
-#### Per installazione manuale:
-
-```bash
+# Log di Tomcat (output principale)
 sudo tail -f /opt/tomcat/logs/catalina.out
+
+# Log di sistema tramite journalctl
+sudo journalctl -u tomcat -f
+
+# Altri log di Tomcat
+ls -lh /opt/tomcat/logs/
 ```
 
 Output atteso nei log:
@@ -362,41 +380,35 @@ Output atteso nei log:
 ### Avviare Tomcat
 
 ```bash
-# Per installazione APT:
-sudo systemctl start tomcat9
-
-# Per installazione manuale:
 sudo systemctl start tomcat
 ```
 
 ### Fermare Tomcat
 
 ```bash
-# Per installazione APT:
-sudo systemctl stop tomcat9
-
-# Per installazione manuale:
 sudo systemctl stop tomcat
 ```
 
 ### Riavviare Tomcat
 
 ```bash
-# Per installazione APT:
-sudo systemctl restart tomcat9
-
-# Per installazione manuale:
 sudo systemctl restart tomcat
 ```
 
 ### Controllare lo Stato
 
 ```bash
-# Per installazione APT:
-sudo systemctl status tomcat9
-
-# Per installazione manuale:
 sudo systemctl status tomcat
+```
+
+### Verificare che Tomcat sia in ascolto
+
+```bash
+# Verificare che la porta 8080 sia in ascolto
+sudo netstat -tlnp | grep 8080
+
+# Oppure con ss
+sudo ss -tlnp | grep 8080
 ```
 
 ## Undeploy delle Applicazioni
@@ -404,13 +416,6 @@ sudo systemctl status tomcat
 ### Metodo 1: Manuale
 
 ```bash
-# Per installazione APT:
-sudo rm /var/lib/tomcat9/webapps/app1.war
-sudo rm -rf /var/lib/tomcat9/webapps/app1/
-sudo rm /var/lib/tomcat9/webapps/app2.war
-sudo rm -rf /var/lib/tomcat9/webapps/app2/
-
-# Per installazione manuale:
 sudo rm /opt/tomcat/webapps/app1.war
 sudo rm -rf /opt/tomcat/webapps/app1/
 sudo rm /opt/tomcat/webapps/app2.war
@@ -428,32 +433,63 @@ sudo rm -rf /opt/tomcat/webapps/app2/
 ### Tomcat non si avvia
 
 ```bash
-# Verificare i log
-sudo journalctl -u tomcat9 -n 50
+# Verificare i log di sistema
+sudo journalctl -u tomcat -n 50 --no-pager
+
+# Verificare i log di Tomcat
+sudo cat /opt/tomcat/logs/catalina.out
 
 # Verificare la porta 8080
 sudo netstat -tlnp | grep 8080
+
+# Verificare che Java sia installato
+java -version
+
+# Verificare il path di JAVA_HOME nel servizio
+grep JAVA_HOME /etc/systemd/system/tomcat.service
+
+# Testare l'avvio manuale
+sudo su - tomcat -s /bin/bash -c '/opt/tomcat/bin/catalina.sh run'
 ```
 
 ### Applicazione non si deploya
 
 ```bash
 # Verificare i permessi
-ls -la /var/lib/tomcat9/webapps/
+ls -la /opt/tomcat/webapps/
+
+# Verificare che i file WAR siano presenti
+ls -lh /opt/tomcat/webapps/*.war
 
 # Verificare i log di deployment
-sudo tail -f /var/lib/tomcat9/logs/catalina.out
+sudo tail -f /opt/tomcat/logs/catalina.out
+
+# Verificare errori specifici delle applicazioni
+sudo grep -i "error\|exception" /opt/tomcat/logs/catalina.out
 ```
 
 ### Errore 404 quando accedo all'applicazione
 
 ```bash
 # Verificare che le applicazioni siano deployate
-ls -la /var/lib/tomcat9/webapps/
+ls -la /opt/tomcat/webapps/
 
 # Verificare che le directory siano state espanse
-ls -la /var/lib/tomcat9/webapps/app1/
-ls -la /var/lib/tomcat9/webapps/app2/
+ls -la /opt/tomcat/webapps/app1/
+ls -la /opt/tomcat/webapps/app2/
+
+# Verificare i descrittori web.xml
+cat /opt/tomcat/webapps/app1/WEB-INF/web.xml
+cat /opt/tomcat/webapps/app2/WEB-INF/web.xml
+```
+
+### Errori di permessi
+
+```bash
+# Correggere i permessi
+sudo chown -R tomcat:tomcat /opt/tomcat/
+sudo chmod -R u+x /opt/tomcat/bin
+sudo chmod -R u+r /opt/tomcat/
 ```
 
 ### Controllare errori Java
@@ -462,8 +498,11 @@ ls -la /var/lib/tomcat9/webapps/app2/
 # Verificare la versione di Java
 java -version
 
-# Verificare JAVA_HOME
-echo $JAVA_HOME
+# Verificare tutti i JDK installati
+ls -la /usr/lib/jvm/
+
+# Verificare JAVA_HOME nel contesto del servizio
+sudo systemctl show tomcat | grep JAVA_HOME
 ```
 
 ## Configurazione Firewall (Se necessario)
