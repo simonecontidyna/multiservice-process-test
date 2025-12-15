@@ -119,7 +119,15 @@ Oppure:
 ls -la /usr/lib/jvm/
 ```
 
-Il path comune per OpenJDK 11 è `/usr/lib/jvm/java-11-openjdk-amd64` ma potrebbe variare.
+**IMPORTANTE:** Il path di JAVA_HOME dipende dall'architettura del sistema:
+- **x86_64/AMD64**: `/usr/lib/jvm/java-11-openjdk-amd64`
+- **ARM64/aarch64**: `/usr/lib/jvm/java-11-openjdk-arm64`
+
+Per identificare l'architettura del tuo sistema:
+```bash
+uname -m
+# Output: x86_64 (AMD64) oppure aarch64 (ARM64)
+```
 
 #### Creare il Servizio Systemd
 
@@ -127,7 +135,11 @@ Il path comune per OpenJDK 11 è `/usr/lib/jvm/java-11-openjdk-amd64` ma potrebb
 sudo nano /etc/systemd/system/tomcat.service
 ```
 
-Inserire il seguente contenuto (sostituisci JAVA_HOME se necessario):
+Inserire il seguente contenuto:
+
+**IMPORTANTE:** Usa il path corretto per JAVA_HOME in base alla tua architettura:
+- Per AMD64: `JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64`
+- Per ARM64: `JAVA_HOME=/usr/lib/jvm/java-11-openjdk-arm64`
 
 ```ini
 [Unit]
@@ -137,6 +149,8 @@ After=network.target
 [Service]
 Type=forking
 
+# Per AMD64 usa: Environment="JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64"
+# Per ARM64 usa: Environment="JAVA_HOME=/usr/lib/jvm/java-11-openjdk-arm64"
 Environment="JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64"
 Environment="CATALINA_PID=/opt/tomcat/temp/tomcat.pid"
 Environment="CATALINA_HOME=/opt/tomcat"
@@ -450,6 +464,29 @@ grep JAVA_HOME /etc/systemd/system/tomcat.service
 
 # Testare l'avvio manuale
 sudo su - tomcat -s /bin/bash -c '/opt/tomcat/bin/catalina.sh run'
+```
+
+**Errore: "JAVA_HOME is not defined correctly"**
+
+Questo errore indica che il path di JAVA_HOME non è corretto per la tua architettura:
+
+```bash
+# Verificare l'architettura del sistema
+uname -m
+
+# Verificare quale JDK è installato
+ls -la /usr/lib/jvm/
+
+# Correggere il path in base all'architettura
+# Per ARM64:
+sudo sed -i 's|JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64|JAVA_HOME=/usr/lib/jvm/java-11-openjdk-arm64|g' /etc/systemd/system/tomcat.service
+
+# Per AMD64 (se necessario):
+sudo sed -i 's|JAVA_HOME=/usr/lib/jvm/java-11-openjdk-arm64|JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64|g' /etc/systemd/system/tomcat.service
+
+# Ricaricare e riavviare
+sudo systemctl daemon-reload
+sudo systemctl restart tomcat
 ```
 
 ### Applicazione non si deploya
