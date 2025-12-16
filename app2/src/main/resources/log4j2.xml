@@ -3,7 +3,7 @@
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
             <!-- Dynatrace log enrichment pattern with MDC -->
-            <PatternLayout pattern="[!dt dt.entity.service=%X{dt.entity.service}] %d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{36} - %msg%n"/>
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{36} - [!dt dt.entity.service=%X{dt.entity.service} dt.entity.process_group_instance=%X{dt.entity.process_group_instance}]  %msg%n"/>
         </Console>
     </Appenders>
 
