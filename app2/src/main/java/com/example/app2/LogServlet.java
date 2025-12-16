@@ -17,7 +17,6 @@ public class LogServlet extends HttpServlet {
     private static final Logger logger = LogManager.getLogger(LogServlet.class);
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final String SERVICE_NAME = "tomcat-app2";
-    private static final String DT_SERVICE_ID = "SERVICE-APP2";
 
     @Override
     public void init() throws ServletException {
@@ -29,9 +28,7 @@ public class LogServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-
-        // Set Dynatrace entity service in MDC (ThreadContext)
-        ThreadContext.put("dt.entity.service", DT_SERVICE_ID);
+                
 
         try {
             String timestamp = LocalDateTime.now().format(formatter);
@@ -55,7 +52,6 @@ public class LogServlet extends HttpServlet {
             out.println("{");
             out.println("  \"application\": \"app2\",");
             out.println("  \"service\": \"" + SERVICE_NAME + "\",");
-            out.println("  \"dt.entity.service\": \"" + DT_SERVICE_ID + "\",");
             out.println("  \"message\": \"Request logged successfully\",");
             out.println("  \"timestamp\": \"" + timestamp + "\",");
             out.println("  \"requestURI\": \"" + requestURI + "\",");
