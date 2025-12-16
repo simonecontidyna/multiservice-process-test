@@ -340,6 +340,8 @@ Risposta attesa:
 ```json
 {
   "application": "app1",
+  "service": "tomcat-app1",
+  "dt.entity.service": "SERVICE-APP1",
   "message": "Request logged successfully",
   "timestamp": "2025-12-15 10:30:45",
   "requestURI": "/app1/log",
@@ -361,6 +363,8 @@ Risposta attesa:
 ```json
 {
   "application": "app2",
+  "service": "tomcat-app2",
+  "dt.entity.service": "SERVICE-APP2",
   "message": "Request logged successfully",
   "timestamp": "2025-12-15 10:31:20",
   "requestURI": "/app2/log",
@@ -383,11 +387,17 @@ sudo journalctl -u tomcat -f
 ls -lh /opt/tomcat/logs/
 ```
 
-Output atteso nei log:
+Output atteso nei log (con Dynatrace enrichment):
 ```
-[APP1] [2025-12-15 10:30:45] Request received from 127.0.0.1 - URI: /app1/log?test=123
-[APP2] [2025-12-15 10:31:20] Request received from 127.0.0.1 - URI: /app2/log?test=456
+[!dt dt.entity.service=SERVICE-APP1] 2025-12-15 21:45:12.345 [INFO] com.example.app1.LogServlet - [APP1] Request received from 127.0.0.1 - URI: /app1/log?test=123
+[!dt dt.entity.service=SERVICE-APP2] 2025-12-15 21:45:20.678 [INFO] com.example.app2.LogServlet - [APP2] Request received from 127.0.0.1 - URI: /app2/log?test=456
 ```
+
+**Nota Dynatrace:** I log includono metadati di enrichment tramite un **custom PatternFormatter** nel formato `[!dt dt.entity.service=SERVICE-ID]` per l'integrazione con Dynatrace log monitoring. Ogni applicazione ha:
+- `app1`: Service ID `SERVICE-APP1` (service name: `tomcat-app1`)
+- `app2`: Service ID `SERVICE-APP2` (service name: `tomcat-app2`)
+
+Il formatter viene configurato automaticamente all'avvio del servlet tramite `java.util.logging.Formatter`.
 
 ## Gestione di Tomcat
 
@@ -558,6 +568,73 @@ sudo ufw status
 - I log includono timestamp, IP del client, URI richiesto e parametri query
 - Le applicazioni restituiscono JSON come formato di risposta
 - Entrambe le applicazioni supportano sia richieste GET che POST
+
+### Integrazione Dynatrace
+
+Le applicazioni includono log enrichment per Dynatrace tramite **Log4j2 con MDC (Mapped Diagnostic Context)**:
+
+#### Implementazione
+
+- **Framework**: Apache Log4j2 2.23.1
+- **Configurazione**: File `log4j2.xml` in `src/main/resources/` per entrambe le applicazioni
+- **MDC (ThreadContext)**: `dt.entity.service` viene impostato dinamicamente per ogni richiesta
+- **Pattern Log4j2**: `[!dt dt.entity.service=%X{dt.entity.service}] %d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{36} - %msg%n`
+
+#### Configurazione log4j2.xml
+
+```xml
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <!-- Dynatrace log enrichment pattern with MDC -->
+            <PatternLayout pattern="[!dt dt.entity.service=%X{dt.entity.service}] %d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{36} - %msg%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</Configuration>
+```
+
+#### Codice Servlet (esempio)
+
+```java
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.ThreadContext;
+
+// Set Dynatrace entity service in MDC
+ThreadContext.put("dt.entity.service", "SERVICE-APP1");
+logger.info("Request received");
+ThreadContext.clearAll(); // Clear after use
+```
+
+#### Service IDs
+
+- **app1**: Service ID `SERVICE-APP1` (service name: `tomcat-app1`)
+- **app2**: Service ID `SERVICE-APP2` (service name: `tomcat-app2`)
+
+#### Campi JSON
+
+Le risposte HTTP JSON includono:
+- `service`: Nome del servizio (es. `tomcat-app1`)
+- `dt.entity.service`: ID Dynatrace per la correlazione (es. `SERVICE-APP1`)
+
+#### Vantaggi di Log4j2 con MDC
+
+- ✅ Pattern standard raccomandato da Dynatrace
+- ✅ Supporto nativo per MDC/ThreadContext
+- ✅ Configurazione dichiarativa tramite XML
+- ✅ Alte performance e gestione asincrona dei log
+- ✅ Estensibile per aggiungere altri campi Dynatrace (`dt.trace_id`, `dt.span_id`, ecc.)
+
+#### Riferimenti
+
+- [Dynatrace Log Enrichment Documentation](https://docs.dynatrace.com/docs/analyze-explore-automate/logs/lma-log-enrichment)
+- [Apache Log4j2 Pattern Layout](https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout)
+- [GitHub - dynatrace-oss/log4j-metadata-provider](https://github.com/dynatrace-oss/log4j-metadata-provider)
 
 ## Autore
 
