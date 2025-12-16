@@ -571,14 +571,45 @@ sudo ufw status
 
 ### Integrazione Dynatrace
 
-Le applicazioni includono log enrichment per Dynatrace tramite un **custom formatter**:
+Le applicazioni includono log enrichment per Dynatrace tramite **Log4j2 con MDC (Mapped Diagnostic Context)**:
 
 #### Implementazione
 
-- **Custom Formatter**: `DynatraceLogFormatter` estende `java.util.logging.Formatter`
-- **Configurazione**: Il formatter viene applicato automaticamente tramite `ConsoleHandler` in un blocco statico del servlet
-- **Formato log**: I messaggi sono prefissati con `[!dt dt.entity.service=SERVICE-ID]` secondo lo standard Dynatrace
-- **Pattern completo**: `[!dt dt.entity.service=ID] timestamp [LEVEL] logger - message`
+- **Framework**: Apache Log4j2 2.23.1
+- **Configurazione**: File `log4j2.xml` in `src/main/resources/` per entrambe le applicazioni
+- **MDC (ThreadContext)**: `dt.entity.service` viene impostato dinamicamente per ogni richiesta
+- **Pattern Log4j2**: `[!dt dt.entity.service=%X{dt.entity.service}] %d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{36} - %msg%n`
+
+#### Configurazione log4j2.xml
+
+```xml
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <!-- Dynatrace log enrichment pattern with MDC -->
+            <PatternLayout pattern="[!dt dt.entity.service=%X{dt.entity.service}] %d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{36} - %msg%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</Configuration>
+```
+
+#### Codice Servlet (esempio)
+
+```java
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.ThreadContext;
+
+// Set Dynatrace entity service in MDC
+ThreadContext.put("dt.entity.service", "SERVICE-APP1");
+logger.info("Request received");
+ThreadContext.clearAll(); // Clear after use
+```
 
 #### Service IDs
 
@@ -591,12 +622,19 @@ Le risposte HTTP JSON includono:
 - `service`: Nome del servizio (es. `tomcat-app1`)
 - `dt.entity.service`: ID Dynatrace per la correlazione (es. `SERVICE-APP1`)
 
+#### Vantaggi di Log4j2 con MDC
+
+- ✅ Pattern standard raccomandato da Dynatrace
+- ✅ Supporto nativo per MDC/ThreadContext
+- ✅ Configurazione dichiarativa tramite XML
+- ✅ Alte performance e gestione asincrona dei log
+- ✅ Estensibile per aggiungere altri campi Dynatrace (`dt.trace_id`, `dt.span_id`, ecc.)
+
 #### Riferimenti
 
 - [Dynatrace Log Enrichment Documentation](https://docs.dynatrace.com/docs/analyze-explore-automate/logs/lma-log-enrichment)
+- [Apache Log4j2 Pattern Layout](https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout)
 - [GitHub - dynatrace-oss/log4j-metadata-provider](https://github.com/dynatrace-oss/log4j-metadata-provider)
-
-**Nota:** L'implementazione utilizza un custom formatter invece di MDC (Mapped Diagnostic Context) poiché usa `java.util.logging`. Per framework come Log4j2 o Logback, si consiglia l'uso di MDC con pattern come `%X{dt.entity.service}`.
 
 ## Autore
 
