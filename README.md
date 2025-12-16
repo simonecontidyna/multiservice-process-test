@@ -340,6 +340,8 @@ Risposta attesa:
 ```json
 {
   "application": "app1",
+  "service": "tomcat-app1",
+  "dt.entity.service": "SERVICE-APP1",
   "message": "Request logged successfully",
   "timestamp": "2025-12-15 10:30:45",
   "requestURI": "/app1/log",
@@ -361,6 +363,8 @@ Risposta attesa:
 ```json
 {
   "application": "app2",
+  "service": "tomcat-app2",
+  "dt.entity.service": "SERVICE-APP2",
   "message": "Request logged successfully",
   "timestamp": "2025-12-15 10:31:20",
   "requestURI": "/app2/log",
@@ -383,11 +387,15 @@ sudo journalctl -u tomcat -f
 ls -lh /opt/tomcat/logs/
 ```
 
-Output atteso nei log:
+Output atteso nei log (con Dynatrace enrichment):
 ```
-[APP1] [2025-12-15 10:30:45] Request received from 127.0.0.1 - URI: /app1/log?test=123
-[APP2] [2025-12-15 10:31:20] Request received from 127.0.0.1 - URI: /app2/log?test=456
+[!dt dt.entity.service=SERVICE-APP1] [APP1] [2025-12-15 10:30:45] Request received from 127.0.0.1 - URI: /app1/log?test=123
+[!dt dt.entity.service=SERVICE-APP2] [APP2] [2025-12-15 10:31:20] Request received from 127.0.0.1 - URI: /app2/log?test=456
 ```
+
+**Nota Dynatrace:** I log includono metadati di enrichment nel formato `[!dt dt.entity.service=SERVICE-ID]` per l'integrazione con Dynatrace log monitoring. Ogni applicazione ha un identificatore univoco:
+- `app1`: `SERVICE-APP1`
+- `app2`: `SERVICE-APP2`
 
 ## Gestione di Tomcat
 
@@ -558,6 +566,19 @@ sudo ufw status
 - I log includono timestamp, IP del client, URI richiesto e parametri query
 - Le applicazioni restituiscono JSON come formato di risposta
 - Entrambe le applicazioni supportano sia richieste GET che POST
+
+### Integrazione Dynatrace
+
+Le applicazioni includono log enrichment per Dynatrace:
+
+- **Formato log**: I messaggi di log sono prefissati con `[!dt dt.entity.service=SERVICE-ID]`
+- **Service IDs**:
+  - app1: `SERVICE-APP1` (service name: `tomcat-app1`)
+  - app2: `SERVICE-APP2` (service name: `tomcat-app2`)
+- **JSON Response**: Include i campi `service` e `dt.entity.service` per tracciabilità
+- **Documentazione**: [Dynatrace Log Enrichment](https://docs.dynatrace.com/docs/analyze-explore-automate/logs/lma-log-enrichment)
+
+Questo formato permette a Dynatrace di correlare automaticamente i log con i servizi monitorati.
 
 ## Autore
 

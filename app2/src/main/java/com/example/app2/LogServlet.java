@@ -13,6 +13,8 @@ import java.time.format.DateTimeFormatter;
 public class LogServlet extends HttpServlet {
     private static final Logger logger = Logger.getLogger(LogServlet.class.getName());
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final String SERVICE_NAME = "tomcat-app2";
+    private static final String DT_SERVICE_ID = "SERVICE-APP2";
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -23,8 +25,15 @@ public class LogServlet extends HttpServlet {
         String requestURI = request.getRequestURI();
         String queryString = request.getQueryString();
 
+        // Dynatrace log enrichment format
+        String dtEnrichment = String.format(
+            "[!dt dt.entity.service=%s]",
+            DT_SERVICE_ID
+        );
+
         String logMessage = String.format(
-            "[APP2] [%s] Request received from %s - URI: %s%s",
+            "%s [APP2] [%s] Request received from %s - URI: %s%s",
+            dtEnrichment,
             timestamp,
             clientIP,
             requestURI,
@@ -40,6 +49,8 @@ public class LogServlet extends HttpServlet {
         PrintWriter out = response.getWriter();
         out.println("{");
         out.println("  \"application\": \"app2\",");
+        out.println("  \"service\": \"" + SERVICE_NAME + "\",");
+        out.println("  \"dt.entity.service\": \"" + DT_SERVICE_ID + "\",");
         out.println("  \"message\": \"Request logged successfully\",");
         out.println("  \"timestamp\": \"" + timestamp + "\",");
         out.println("  \"requestURI\": \"" + requestURI + "\",");
