@@ -389,13 +389,15 @@ ls -lh /opt/tomcat/logs/
 
 Output atteso nei log (con Dynatrace enrichment):
 ```
-[!dt dt.entity.service=SERVICE-APP1] [APP1] [2025-12-15 10:30:45] Request received from 127.0.0.1 - URI: /app1/log?test=123
-[!dt dt.entity.service=SERVICE-APP2] [APP2] [2025-12-15 10:31:20] Request received from 127.0.0.1 - URI: /app2/log?test=456
+[!dt dt.entity.service=SERVICE-APP1] 2025-12-15 21:45:12.345 [INFO] com.example.app1.LogServlet - [APP1] Request received from 127.0.0.1 - URI: /app1/log?test=123
+[!dt dt.entity.service=SERVICE-APP2] 2025-12-15 21:45:20.678 [INFO] com.example.app2.LogServlet - [APP2] Request received from 127.0.0.1 - URI: /app2/log?test=456
 ```
 
-**Nota Dynatrace:** I log includono metadati di enrichment nel formato `[!dt dt.entity.service=SERVICE-ID]` per l'integrazione con Dynatrace log monitoring. Ogni applicazione ha un identificatore univoco:
-- `app1`: `SERVICE-APP1`
-- `app2`: `SERVICE-APP2`
+**Nota Dynatrace:** I log includono metadati di enrichment tramite un **custom PatternFormatter** nel formato `[!dt dt.entity.service=SERVICE-ID]` per l'integrazione con Dynatrace log monitoring. Ogni applicazione ha:
+- `app1`: Service ID `SERVICE-APP1` (service name: `tomcat-app1`)
+- `app2`: Service ID `SERVICE-APP2` (service name: `tomcat-app2`)
+
+Il formatter viene configurato automaticamente all'avvio del servlet tramite `java.util.logging.Formatter`.
 
 ## Gestione di Tomcat
 
@@ -569,16 +571,32 @@ sudo ufw status
 
 ### Integrazione Dynatrace
 
-Le applicazioni includono log enrichment per Dynatrace:
+Le applicazioni includono log enrichment per Dynatrace tramite un **custom formatter**:
 
-- **Formato log**: I messaggi di log sono prefissati con `[!dt dt.entity.service=SERVICE-ID]`
-- **Service IDs**:
-  - app1: `SERVICE-APP1` (service name: `tomcat-app1`)
-  - app2: `SERVICE-APP2` (service name: `tomcat-app2`)
-- **JSON Response**: Include i campi `service` e `dt.entity.service` per tracciabilità
-- **Documentazione**: [Dynatrace Log Enrichment](https://docs.dynatrace.com/docs/analyze-explore-automate/logs/lma-log-enrichment)
+#### Implementazione
 
-Questo formato permette a Dynatrace di correlare automaticamente i log con i servizi monitorati.
+- **Custom Formatter**: `DynatraceLogFormatter` estende `java.util.logging.Formatter`
+- **Configurazione**: Il formatter viene applicato automaticamente tramite `ConsoleHandler` in un blocco statico del servlet
+- **Formato log**: I messaggi sono prefissati con `[!dt dt.entity.service=SERVICE-ID]` secondo lo standard Dynatrace
+- **Pattern completo**: `[!dt dt.entity.service=ID] timestamp [LEVEL] logger - message`
+
+#### Service IDs
+
+- **app1**: Service ID `SERVICE-APP1` (service name: `tomcat-app1`)
+- **app2**: Service ID `SERVICE-APP2` (service name: `tomcat-app2`)
+
+#### Campi JSON
+
+Le risposte HTTP JSON includono:
+- `service`: Nome del servizio (es. `tomcat-app1`)
+- `dt.entity.service`: ID Dynatrace per la correlazione (es. `SERVICE-APP1`)
+
+#### Riferimenti
+
+- [Dynatrace Log Enrichment Documentation](https://docs.dynatrace.com/docs/analyze-explore-automate/logs/lma-log-enrichment)
+- [GitHub - dynatrace-oss/log4j-metadata-provider](https://github.com/dynatrace-oss/log4j-metadata-provider)
+
+**Nota:** L'implementazione utilizza un custom formatter invece di MDC (Mapped Diagnostic Context) poiché usa `java.util.logging`. Per framework come Log4j2 o Logback, si consiglia l'uso di MDC con pattern come `%X{dt.entity.service}`.
 
 ## Autore
 

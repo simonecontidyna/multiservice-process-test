@@ -7,6 +7,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.logging.Logger;
+import java.util.logging.ConsoleHandler;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -15,6 +16,14 @@ public class LogServlet extends HttpServlet {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final String SERVICE_NAME = "tomcat-app2";
     private static final String DT_SERVICE_ID = "SERVICE-APP2";
+
+    static {
+        // Configure Dynatrace log formatter
+        ConsoleHandler handler = new ConsoleHandler();
+        handler.setFormatter(new DynatraceLogFormatter(SERVICE_NAME, DT_SERVICE_ID));
+        logger.addHandler(handler);
+        logger.setUseParentHandlers(false);
+    }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -25,23 +34,14 @@ public class LogServlet extends HttpServlet {
         String requestURI = request.getRequestURI();
         String queryString = request.getQueryString();
 
-        // Dynatrace log enrichment format
-        String dtEnrichment = String.format(
-            "[!dt dt.entity.service=%s]",
-            DT_SERVICE_ID
-        );
-
         String logMessage = String.format(
-            "%s [APP2] [%s] Request received from %s - URI: %s%s",
-            dtEnrichment,
-            timestamp,
+            "[APP2] Request received from %s - URI: %s%s",
             clientIP,
             requestURI,
             queryString != null ? "?" + queryString : ""
         );
 
         logger.info(logMessage);
-        System.out.println(logMessage);
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
