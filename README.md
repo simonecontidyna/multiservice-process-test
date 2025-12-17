@@ -374,30 +374,51 @@ Risposta attesa:
 
 ### 3. Visualizzare i Log
 
-I log vengono scritti sia nel logger Java che sulla console standard.
+Le applicazioni scrivono i log sia su **file dedicati** che sulla **console standard** (catalina.out).
+
+#### File di log dedicati per applicazione
+
+Ogni applicazione ha il proprio file di log con rolling automatico:
 
 ```bash
-# Log di Tomcat (output principale)
+# Log di app1 (file dedicato)
+sudo tail -f /opt/tomcat/logs/app1.log
+
+# Log di app2 (file dedicato)
+sudo tail -f /opt/tomcat/logs/app2.log
+
+# Lista di tutti i log di Tomcat
+ls -lh /opt/tomcat/logs/
+```
+
+#### Log consolidati
+
+```bash
+# Log di Tomcat consolidati (include tutti i log)
 sudo tail -f /opt/tomcat/logs/catalina.out
 
 # Log di sistema tramite journalctl
 sudo journalctl -u tomcat -f
-
-# Altri log di Tomcat
-ls -lh /opt/tomcat/logs/
 ```
 
-Output atteso nei log (con Dynatrace enrichment):
+#### Politica di Rolling dei Log
+
+I file di log vengono automaticamente ruotati secondo queste regole:
+- **Dimensione massima**: 10 MB per file
+- **Rotazione temporale**: Giornaliera
+- **File archiviati**: Massimo 30 file compressi (`.gz`)
+- **Pattern file archiviati**: `app1-yyyy-MM-dd-i.log.gz` e `app2-yyyy-MM-dd-i.log.gz`
+
+#### Output atteso nei log (con Dynatrace enrichment)
+
 ```
 [!dt dt.entity.service=SERVICE-APP1] 2025-12-15 21:45:12.345 [INFO] com.example.app1.LogServlet - [APP1] Request received from 127.0.0.1 - URI: /app1/log?test=123
 [!dt dt.entity.service=SERVICE-APP2] 2025-12-15 21:45:20.678 [INFO] com.example.app2.LogServlet - [APP2] Request received from 127.0.0.1 - URI: /app2/log?test=456
 ```
 
-**Nota Dynatrace:** I log includono metadati di enrichment tramite un **custom PatternFormatter** nel formato `[!dt dt.entity.service=SERVICE-ID]` per l'integrazione con Dynatrace log monitoring. Ogni applicazione ha:
-- `app1`: Service ID `SERVICE-APP1` (service name: `tomcat-app1`)
-- `app2`: Service ID `SERVICE-APP2` (service name: `tomcat-app2`)
-
-Il formatter viene configurato automaticamente all'avvio del servlet tramite `java.util.logging.Formatter`.
+**Nota Dynatrace:** I log includono metadati di enrichment tramite **Log4j2 con MDC** nel formato `[!dt dt.entity.service=SERVICE-ID]` per l'integrazione con Dynatrace log monitoring. Ogni applicazione ha:
+- `app1`: Service ID `SERVICE-APP1` (service name: `tomcat-app1`) → File: `/opt/tomcat/logs/app1.log`
+- `app2`: Service ID `SERVICE-APP2` (service name: `tomcat-app2`) → File: `/opt/tomcat/logs/app2.log`
 
 ## Gestione di Tomcat
 
@@ -582,21 +603,40 @@ Le applicazioni includono log enrichment per Dynatrace tramite **Log4j2 con MDC 
 
 #### Configurazione log4j2.xml
 
+Le applicazioni utilizzano sia un **Console Appender** che un **RollingFile Appender** per scrivere i log:
+
 ```xml
 <Configuration status="WARN">
     <Appenders>
+        <!-- Console Appender -->
         <Console name="Console" target="SYSTEM_OUT">
             <!-- Dynatrace log enrichment pattern with MDC -->
             <PatternLayout pattern="[!dt dt.entity.service=%X{dt.entity.service}] %d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{36} - %msg%n"/>
         </Console>
+
+        <!-- Rolling File Appender (file separato per ogni app) -->
+        <RollingFile name="RollingFile"
+                     fileName="${sys:catalina.base}/logs/app1.log"
+                     filePattern="${sys:catalina.base}/logs/app1-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="[!dt dt.entity.service=%X{dt.entity.service}] %d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{36} - %msg%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="10MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
     </Appenders>
+
     <Loggers>
         <Root level="info">
             <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFile"/>
         </Root>
     </Loggers>
 </Configuration>
 ```
+
+**Nota:** `app2` ha una configurazione identica ma scrive su `app2.log` invece di `app1.log`.
 
 #### Codice Servlet (esempio)
 
@@ -628,6 +668,9 @@ Le risposte HTTP JSON includono:
 - ✅ Supporto nativo per MDC/ThreadContext
 - ✅ Configurazione dichiarativa tramite XML
 - ✅ Alte performance e gestione asincrona dei log
+- ✅ **File di log separati per applicazione** con rolling automatico
+- ✅ Compressione automatica dei file archiviati (gzip)
+- ✅ Politiche di rolling configurabili (dimensione e tempo)
 - ✅ Estensibile per aggiungere altri campi Dynatrace (`dt.trace_id`, `dt.span_id`, ecc.)
 
 #### Riferimenti

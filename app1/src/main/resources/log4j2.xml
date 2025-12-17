@@ -1,20 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
     <Appenders>
+        <!-- Console Appender -->
         <Console name="Console" target="SYSTEM_OUT">
             <!-- Dynatrace log enrichment pattern with MDC -->
             <PatternLayout pattern="[!dt dt.entity.service=%X{dt.entity.service}] %d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{36} - %msg%n"/>
         </Console>
+
+        <!-- Rolling File Appender for app1 -->
+        <RollingFile name="RollingFile"
+                     fileName="${sys:catalina.base}/logs/app1.log"
+                     filePattern="${sys:catalina.base}/logs/app1-%d{yyyy-MM-dd}-%i.log.gz">
+            <!-- Dynatrace log enrichment pattern with MDC -->
+            <PatternLayout pattern="[!dt dt.entity.service=%X{dt.entity.service}] %d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{36} - %msg%n"/>
+            <Policies>
+                <!-- Roll over daily -->
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <!-- Roll over when file reaches 10MB -->
+                <SizeBasedTriggeringPolicy size="10MB"/>
+            </Policies>
+            <!-- Keep max 30 files -->
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
     </Appenders>
 
     <Loggers>
         <Root level="info">
             <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFile"/>
         </Root>
 
         <!-- Logger specific for app1 -->
         <Logger name="com.example.app1" level="info" additivity="false">
             <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFile"/>
         </Logger>
     </Loggers>
 </Configuration>
