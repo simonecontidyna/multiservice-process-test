@@ -9,10 +9,10 @@
 
         <!-- Rolling File Appender for app1 -->
         <RollingFile name="RollingFile"
-                     fileName="${sys:catalina.base}/logs/app1.log"
+                     fileName="${sys:catalina.base}/logs/applicazioneUno.log"
                      filePattern="${sys:catalina.base}/logs/app1-%d{yyyy-MM-dd}-%i.log.gz">
             <!-- Dynatrace log enrichment pattern with MDC -->
-            <PatternLayout pattern="[!dt dt.entity.service=%X{dt.entity.service}] %d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{36} - %msg%n"/>
+            <PatternLayout pattern="[!dt inps.applicationname=ApplicazioneUno] %d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{36} - %msg%n"/>
             <Policies>
                 <!-- Roll over daily -->
                 <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
