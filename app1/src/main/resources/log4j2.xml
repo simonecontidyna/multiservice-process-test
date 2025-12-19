@@ -4,7 +4,7 @@
         <!-- Console Appender -->
         <Console name="Console" target="SYSTEM_OUT">
             <!-- Dynatrace log enrichment pattern with MDC -->
-            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{36} - [!dt dt.entity.service=%X{dt.entity.service} dt.entity.process_group_instance=%X{dt.entity.process_group_instance}] %msg%n"/>
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{36} - %msg%n"/>
         </Console>
 
         <!-- Rolling File Appender for app1 -->
@@ -12,7 +12,7 @@
                      fileName="${sys:catalina.base}/logs/applicazioneUno.log"
                      filePattern="${sys:catalina.base}/logs/app1-%d{yyyy-MM-dd}-%i.log.gz">
             <!-- Dynatrace log enrichment pattern with MDC -->
-            <PatternLayout pattern="dt inps.applicationname=ApplicazioneUno %d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{36} - %msg%n"/>
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{36} - custom.appname=ApplicazioneUno - %msg%n"/>
             <Policies>
                 <!-- Roll over daily -->
                 <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
